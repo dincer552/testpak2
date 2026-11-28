@@ -977,7 +977,7 @@ func _refresh_order_cards() -> void:
             mood="SABIRSIZ"
         elif c["state"]=="banging":
             mood="MASAYA VURUYOR!"
-        button.text="%s  •  $%d\n%s\n%s"%(c["name"],drink["price"],drink["short"],mood)
+        button.text="%s  •  $%d\n%s\n%s" % [c["name"],drink["price"],drink["short"],mood]
         button.add_theme_font_size_override("font_size",11)
         var background:Color=Color("#F4EBD7")
         if int(c["id"])==_selected_customer_id:
@@ -1018,7 +1018,7 @@ func _refresh_recipe() -> void:
             step_text="▶ "+step_text
         steps.append(step_text)
     steps.append("KARIŞTIR")
-    _recipe_label.text="%s  •  $%d  •  %s"%(drink["name"],drink["price"],"  →  ".join(steps))
+    _recipe_label.text="%s  •  $%d  •  %s" % [drink["name"],drink["price"],"  →  ".join(steps)]
 
 func _format_money(value: int) -> String:
     var raw:=str(value)
