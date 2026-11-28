@@ -143,7 +143,7 @@ func _build_environment() -> void:
     _camera=Camera3D.new()
     _camera.name="IsometricCafeCamera"
     _camera.projection=Camera3D.PROJECTION_ORTHOGONAL
-    _camera.size=17.4
+    _camera.size=23.5
     _camera.position=Vector3(0,10.5,14.5)
     _camera.look_at(Vector3(0,1.1,-1.65),Vector3.UP)
     _camera.current=true
@@ -791,7 +791,7 @@ func _build_hud() -> void:
     _orders_box.add_theme_constant_override("separation",6)
     order_v.add_child(_orders_box)
 
-    var recipe_panel:=_panel(_ui_root,Vector2(18,806),Vector2(684,78),Color("#FFF8E6"))
+    var recipe_panel:=_panel(_ui_root,Vector2(18,1088),Vector2(684,84),Color("#FFF8E6"))
     var recipe_v:=VBoxContainer.new()
     recipe_v.add_theme_constant_override("separation",4)
     recipe_panel.add_child(recipe_v)
@@ -808,7 +808,7 @@ func _build_hud() -> void:
     _quality_bar.custom_minimum_size=Vector2(0,18)
     recipe_v.add_child(_quality_bar)
 
-    var inventory_panel:=_panel(_ui_root,Vector2(18,894),Vector2(684,370),Color("#FFF8E8"))
+    var inventory_panel:=_panel(_ui_root,Vector2(18,1180),Vector2(684,400),Color("#FFF8E8"))
     var inventory_v:=VBoxContainer.new()
     inventory_v.add_theme_constant_override("separation",5)
     inventory_panel.add_child(inventory_v)
@@ -855,7 +855,7 @@ func _build_hud() -> void:
     actions.add_child(_serve_button)
 
     _status_label=Label.new()
-    _status_label.position=Vector2(35,752)
+    _status_label.position=Vector2(35,1038)
     _status_label.size=Vector2(650,42)
     _status_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
     _status_label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER

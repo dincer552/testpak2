@@ -22,8 +22,6 @@ jobs:
     timeout-minutes: 90
     env:
       APK_SIGNING_SERVICE_URL: https://signer.dinceryuksek.com
-      GODOT_TEMPLATES: ${{ runner.temp }}/godot-templates
-      GODOT_EXPORT_DIR: ${{ runner.temp }}/godot-export
 
     steps:
       - name: Checkout
@@ -66,6 +64,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          GODOT_TEMPLATES="$RUNNER_TEMP/godot-templates"
           mkdir -p "$GODOT_TEMPLATES" "$HOME/.local/share/godot/export_templates/4.7.2.stable"
           curl --fail --location --retry 5 --retry-all-errors --retry-delay 3 \
             "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz" \
@@ -100,7 +99,9 @@ jobs:
           sed -i "s/^version\/code=.*/version\/code=$APP_VERSION_CODE/" godot/export_presets.cfg
           sed -i "s/^version\/name=.*/version\/name=\"$APP_VERSION_NAME\"/" godot/export_presets.cfg
           "$GODOT_BIN" --headless --editor --path godot --quit
+          GODOT_EXPORT_DIR="$RUNNER_TEMP/godot-export"
           mkdir -p "$GODOT_EXPORT_DIR"
+          echo "GODOT_EXPORT_DIR=$GODOT_EXPORT_DIR" >> "$GITHUB_ENV"
           "$GODOT_BIN" --headless --path godot --export-release "Android" "$GODOT_EXPORT_DIR/testpak2-unsigned.apk"
           test -s "$GODOT_EXPORT_DIR/testpak2-unsigned.apk"
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$GODOT_EXPORT_DIR/testpak2-unsigned.apk")"
