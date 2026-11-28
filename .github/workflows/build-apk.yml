@@ -1,4 +1,4 @@
-name: Build, sign and publish FasterFastMini
+name: Build, sign and publish Sunny Sip Bar 3D
 
 on:
   push:
@@ -12,16 +12,18 @@ permissions:
   id-token: write
 
 concurrency:
-  group: fasterfastmini-${{ github.workflow }}-${{ github.ref }}
+  group: sunny-sip-bar-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-sign-release:
-    name: Build, verify, sign and publish FasterFastMini
+    name: Build Godot 3D, verify, sign and publish APK
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 90
     env:
       APK_SIGNING_SERVICE_URL: https://signer.dinceryuksek.com
+      GODOT_TEMPLATES: ${{ runner.temp }}/godot-templates
+      GODOT_EXPORT_DIR: ${{ runner.temp }}/godot-export
 
     steps:
       - name: Checkout
@@ -36,29 +38,74 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: "platforms;android-35 build-tools;35.0.0"
+          packages: "platforms;android-35 build-tools;35.0.0 platform-tools"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Download Godot 4.7.2 editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail --location --retry 5 --retry-all-errors --retry-delay 3 \
+            "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip" \
+            -o "$RUNNER_TEMP/godot-editor.zip"
+          unzip -q "$RUNNER_TEMP/godot-editor.zip" -d "$RUNNER_TEMP/godot"
+          GODOT_BIN="$(find "$RUNNER_TEMP/godot" -maxdepth 2 -type f -name 'Godot_v4.7.2-stable_linux.x86_64' -print -quit)"
+          test -n "$GODOT_BIN"
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
+      - name: Restore Godot Android export templates
+        id: godot-templates
+        uses: actions/cache@v4
         with:
-          gradle-version: "8.9"
+          path: ~/.local/share/godot/export_templates/4.7.2.stable
+          key: godot-android-templates-4.7.2-stable-linux-arm64
 
-      - name: Build unsigned release APK
+      - name: Install Godot Android export templates
+        if: steps.godot-templates.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GODOT_TEMPLATES" "$HOME/.local/share/godot/export_templates/4.7.2.stable"
+          curl --fail --location --retry 5 --retry-all-errors --retry-delay 3 \
+            "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz" \
+            -o "$RUNNER_TEMP/godot-templates.tpz"
+          unzip -q "$RUNNER_TEMP/godot-templates.tpz" -d "$GODOT_TEMPLATES"
+          TEMPLATE_ROOT="$GODOT_TEMPLATES/templates"
+          if [ ! -d "$TEMPLATE_ROOT" ]; then
+            TEMPLATE_ROOT="$GODOT_TEMPLATES"
+          fi
+          cp -a "$TEMPLATE_ROOT/." "$HOME/.local/share/godot/export_templates/4.7.2.stable/"
+          test -s "$HOME/.local/share/godot/export_templates/4.7.2.stable/android_release.apk"
+          test -s "$HOME/.local/share/godot/export_templates/4.7.2.stable/android_debug.apk"
+
+      - name: Configure Godot Android SDK paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+
+      - name: Validate Godot project and export unsigned APK
         shell: bash
         run: |
           set -euo pipefail
           APP_VERSION_CODE="$GITHUB_RUN_NUMBER"
           APP_VERSION_NAME="1.0.$GITHUB_RUN_NUMBER"
-          gradle --no-daemon \
-            -PappVersionCode="$APP_VERSION_CODE" \
-            -PappVersionName="$APP_VERSION_NAME" \
-            assembleRelease
-          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
-          test -n "$APK"
-          test -s "$APK"
-          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
+          sed -i "s/^version\/code=.*/version\/code=$APP_VERSION_CODE/" godot/export_presets.cfg
+          sed -i "s/^version\/name=.*/version\/name=\"$APP_VERSION_NAME\"/" godot/export_presets.cfg
+          "$GODOT_BIN" --headless --editor --path godot --quit
+          mkdir -p "$GODOT_EXPORT_DIR"
+          "$GODOT_BIN" --headless --path godot --export-release "Android" "$GODOT_EXPORT_DIR/testpak2-unsigned.apk"
+          test -s "$GODOT_EXPORT_DIR/testpak2-unsigned.apk"
+          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$GODOT_EXPORT_DIR/testpak2-unsigned.apk")"
           echo "$BADGING" | grep -F "package: name='com.dincer552.testpak2' versionCode='$APP_VERSION_CODE'"
-          echo "UNSIGNED_APK=$APK" >> "$GITHUB_ENV"
+          echo "UNSIGNED_APK=$GODOT_EXPORT_DIR/testpak2-unsigned.apk" >> "$GITHUB_ENV"
           echo "APP_VERSION_CODE=$APP_VERSION_CODE" >> "$GITHUB_ENV"
           echo "APP_VERSION_NAME=$APP_VERSION_NAME" >> "$GITHUB_ENV"
 
@@ -86,22 +133,7 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
-      - name: Create this repository's isolated signing key if needed
-        if: steps.oidc.outcome == 'success'
-        env:
-          SIGNING_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl --fail-with-body --silent --show-error \
-            -X POST "${APK_SIGNING_SERVICE_URL%/}/v1/bootstrap" \
-            -H "Authorization: Bearer $SIGNING_OIDC_TOKEN" \
-            -F "key_id=testpak2" \
-            -F "package_name=com.dincer552.testpak2" \
-            -o "$RUNNER_TEMP/bootstrap-response.json"
-          grep -q '"ok":true' "$RUNNER_TEMP/bootstrap-response.json"
-
-      - name: Sign APK with the central VM signer
+      - name: Sign APK with existing central signing key
         if: steps.oidc.outcome == 'success'
         env:
           SIGNING_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
@@ -124,12 +156,12 @@ jobs:
           sha256sum release/testpak2.apk > release/testpak2.apk.sha256
           cat release/testpak2.apk.sha256
 
-      - name: Publish signed FasterFastMini APK
+      - name: Publish signed Sunny Sip Bar APK
         if: steps.oidc.outcome == 'success'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.APP_VERSION_NAME }}
-          name: FasterFastMini ${{ env.APP_VERSION_NAME }}
+          name: Sunny Sip Bar ${{ env.APP_VERSION_NAME }} — 3D
           target_commitish: main
           make_latest: true
           generate_release_notes: true
@@ -142,7 +174,7 @@ jobs:
         if: steps.oidc.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: fasterfastmini-signed-${{ env.APP_VERSION_NAME }}
+          name: sunny-sip-bar-3d-signed-${{ env.APP_VERSION_NAME }}
           path: |
             release/testpak2.apk
             release/testpak2.apk.sha256
