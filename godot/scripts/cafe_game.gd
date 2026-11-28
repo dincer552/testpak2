@@ -120,8 +120,9 @@ func _build_environment() -> void:
     environment.background_color=Color("#83D8EC")
     environment.ambient_light_source=Environment.AMBIENT_SOURCE_COLOR
     environment.ambient_light_color=Color("#FFE5C4")
-    environment.ambient_light_energy=0.72
+    environment.ambient_light_energy=1.0
     environment.tonemap_mode=Environment.TONE_MAPPER_FILMIC
+    environment.ambient_light_color=Color("#FFFFFF")
     world.environment=environment
     add_child(world)
 
@@ -143,10 +144,13 @@ func _build_environment() -> void:
     _camera=Camera3D.new()
     _camera.name="IsometricCafeCamera"
     _camera.projection=Camera3D.PROJECTION_ORTHOGONAL
-    _camera.size=23.5
-    _camera.position=Vector3(0,10.5,14.5)
-    _camera.look_at(Vector3(0,1.1,-1.65),Vector3.UP)
+    _camera.size=16.0
+    _camera.position=Vector3(0,15.0,20.5)
+    _camera.look_at(Vector3(0,1.15,-1.15),Vector3.UP)
     _camera.current=true
+    _camera.near=0.05
+    _camera.far=120.0
+    _camera.keep_aspect=Camera3D.KEEP_HEIGHT
     add_child(_camera)
 
     var ocean:=PlaneMesh.new()
